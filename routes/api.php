@@ -25,14 +25,9 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::controller(AuthController::class)->group(function(){
-    Route::post('register/user', 'registerUser');
+    Route::post('register/worker', 'registerWorker');
     Route::post('register/merchant', 'registerMerchant');
     Route::post('login', 'login');
-
-    Route::get('/login/facebook', 'redirectToFacebook');
-    Route::post('/login/facebook/callback', 'handleFacebookCallback');
-    Route::get('/login/google', 'redirectToGoogle');
-    Route::post('/login/google/callback', 'handleGoogleCallback');
 });
 Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
