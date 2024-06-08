@@ -44,6 +44,9 @@ class WorkerController extends Controller
             }
             $userId=auth()->user()->id;
             $photo = $request->file('attachment');
+             // ------for live---------
+            //  $liveURL = "http://constructionapp.wantar-system.com/uploads/";
+            //  $photo_name = $liveURL . time() . "_" . $photo->getClientOriginalName();
             $photo_name = time() . "_" .$photo->getClientOriginalName();
             $destinationpath = public_path('uploads/');
             $photo->move($destinationpath,$photo_name);
@@ -80,6 +83,9 @@ class WorkerController extends Controller
             }
             $userId=auth()->user()->id;
             $photo = $request->file('photo');
+            // ------for live---------
+            // $liveURL = "http://constructionapp.wantar-system.com/uploads/";
+            // $photo_name = $liveURL . time() . "_" . $photo->getClientOriginalName();
             $photo_name = time() . "_" .$photo->getClientOriginalName();
             $destinationpath = public_path('uploads/');
             $photo->move($destinationpath,$photo_name);
