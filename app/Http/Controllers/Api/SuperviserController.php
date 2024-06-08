@@ -22,11 +22,11 @@ class SuperviserController extends Controller
     use ApiResponseTrait;
     public function allAttendance(){
         try {
-            $data = Attendance::leftJoin('nickyclockinsystem_users', 'attendances.uid', '=', 'nickyclockinsystem_users.id')
+            $data = Attendance::leftJoin('nickyClockinSystem_users', 'attendances.uid', '=', 'nickyClockinSystem_users.id')
             ->select(
-                'nickyclockinsystem_users.name as uname',
-                'nickyclockinsystem_users.lastname',
-                'nickyclockinsystem_users.staff_id',
+                'nickyClockinSystem_users.name as uname',
+                'nickyClockinSystem_users.lastname',
+                'nickyClockinSystem_users.staff_id',
                 'attendances.*',
             )
             ->orderBy('attendances.id', 'desc')

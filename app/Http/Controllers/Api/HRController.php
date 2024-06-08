@@ -21,14 +21,14 @@ class HRController extends Controller
     use ApiResponseTrait;
     public function allLeaves(){
         try {
-            $data = Leave::leftJoin('nickyclockinsystem_users', 'nickyclockinsystem_leaves.userid', '=', 'nickyclockinsystem_users.id')
+            $data = Leave::leftJoin('nickyClockinSystem_users', 'nickyClockinSystem_leaves.userid', '=', 'nickyClockinSystem_users.id')
             ->select(
-                'nickyclockinsystem_users.name as uname',
-                'nickyclockinsystem_users.lastname',
-                'nickyclockinsystem_users.staff_id',
-                'nickyclockinsystem_leaves.*',
+                'nickyClockinSystem_users.name as uname',
+                'nickyClockinSystem_users.lastname',
+                'nickyClockinSystem_users.staff_id',
+                'nickyClockinSystem_leaves.*',
             )
-            ->orderBy('nickyclockinsystem_leaves.id', 'desc')
+            ->orderBy('nickyClockinSystem_leaves.id', 'desc')
             ->get();
 
 
