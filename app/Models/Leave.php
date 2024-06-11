@@ -14,7 +14,7 @@ class Leave extends Model
      *
      * @var string
      */
-    protected $table = 'nickyclockinsystem_leaves';
+    protected $table = 'nickyClockinSystem_leaves';
 
     /**
      * The attributes that are mass assignable.

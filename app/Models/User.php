@@ -16,7 +16,7 @@ class User extends Authenticatable
      *
      * @var string
      */
-    protected $table = 'nickyclockinsystem_users';
+    protected $table = 'nickyClockinSystem_users';
 
     /**
      * The attributes that are mass assignable.

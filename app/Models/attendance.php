@@ -27,5 +27,8 @@ class attendance extends Model
         'checkout',
         'status',
         'uid',
+        'project_name',
+        'checkinPhoto',
+        'checkoutPhoto',
     ];
 }

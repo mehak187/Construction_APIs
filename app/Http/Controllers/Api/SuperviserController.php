@@ -12,7 +12,7 @@ use App\Models\PasswordReset;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Leave;
-use App\Models\Attendance;
+use App\Models\attendance;
 use Validator;
 use Mail;
 use Illuminate\Support\Str;
@@ -22,11 +22,12 @@ class SuperviserController extends Controller
     use ApiResponseTrait;
     public function allAttendance(){
         try {
-            $data = Attendance::leftJoin('nickyclockinsystem_users', 'attendances.uid', '=', 'nickyclockinsystem_users.id')
+            $data = attendance::leftJoin('nickyClockinSystem_users', 'attendances.uid', '=', 'nickyClockinSystem_users.id')
             ->select(
-                'nickyclockinsystem_users.name as uname',
-                'nickyclockinsystem_users.lastname',
-                'nickyclockinsystem_users.staff_id',
+                'nickyClockinSystem_users.name as uname',
+                'nickyClockinSystem_users.role as role',
+                'nickyClockinSystem_users.lastname',
+                'nickyClockinSystem_users.staff_id',
                 'attendances.*',
             )
             ->orderBy('attendances.id', 'desc')
