@@ -28,12 +28,12 @@ class WorkerController extends Controller
     public function leave(Request $request){ 
         try {
             $validatedData = Validator::make($request->all(), [
-                'start_date' => 'required',
-                'end_date' => 'required',
-                'description' => 'required',
-                'timeAdded' => 'required',
-                'attachment' => 'required',
-                'leaveType' => 'required',
+                'start_date' => 'required|date',
+                'end_date' => 'required|date|after_or_equal:start_date',
+                'description' => 'required|string',
+                'timeAdded' => 'required|date_format:H:i',
+                'attachment' => 'required|file|mimes:jpeg,png,jpg,pdf|max:2048',
+                'leaveType' => 'required|string',
             ]);
             if ($validatedData->fails()) {
                 return response()->json(['error' => $validatedData->errors()], 400);
@@ -42,25 +42,30 @@ class WorkerController extends Controller
             if ($user->role != 'officeWorker') {
                 return response()->json(['error' => 'Only office workers can apply for leave.'], 403);
             }
-            $userId=auth()->user()->id;
+            $userId = auth()->user()->id;
             $photo = $request->file('attachment');
-             // ------for live---------
-            //  $liveURL = "http://constructionapp.wantar-system.com/uploads/";
-            //  $photo_name = $liveURL . time() . "_" . $photo->getClientOriginalName();
-            $photo_name = time() . "_" .$photo->getClientOriginalName();
-            $destinationpath = public_path('uploads/');
-            $photo->move($destinationpath,$photo_name);
+            
+            // Store the attachment
+            $photo_name = time() . "_" . $photo->getClientOriginalName();
+            $destinationPath = public_path('uploads/');
+            $photo->move($destinationPath, $photo_name);
+    
+            // Prepare the input data
             $input = $request->all();
             $input['userId'] = $userId;
             $input['status'] = "pending";
             $input['attachment'] = $photo_name;
-            $user = Leave::create($input);
-            return response()->json(['msg' => 'Leave request sent successfully.'], 403);
+    
+            // Create the leave request
+            $leave = Leave::create($input);
+    
+            return response()->json(['msg' => 'Leave request sent successfully.'], 201);
         } 
-            catch (\Exception $e) {
-                return $this->sendError('Error.', $e->getMessage());    
-            }
+        catch (\Exception $e) {
+            return response()->json(['error' => 'Error.', 'message' => $e->getMessage()], 500);
+        }
     }
+    
     public function myLeaves(){
         try {
             $user_id=auth()->user()->id;
@@ -96,7 +101,7 @@ class WorkerController extends Controller
             $input['photo'] = $photo_name;
             $input['checkout'] = "";
             $user = Attendance::create($input);
-            return response()->json(['msg' => 'You are checked in successfully.'], 403);
+            return response()->json(['msg' => 'You are checked in successfully.'], 201);
         } 
             catch (\Exception $e) {
                 return $this->sendError('Error.', $e->getMessage());    
