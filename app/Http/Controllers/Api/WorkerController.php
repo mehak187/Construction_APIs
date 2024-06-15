@@ -27,11 +27,15 @@ class WorkerController extends Controller
     }
     public function leave(Request $request){ 
         try {
+            $user = Auth::user();
+            if ($user->role != 'officeWorker') {
+                return response()->json(['error' => 'Only office worker can apply for leave'], 403);
+            }
             $validatedData = Validator::make($request->all(), [
-                'start_date' => 'required|date',
-                'end_date' => 'required|date|after_or_equal:start_date',
+                'start_date' => 'required',
+                'end_date' => 'required',
                 'description' => 'required|string',
-                'timeAdded' => 'required|date_format:H:i',
+                'timeAdded' => 'required',
                 'attachment' => 'required|file|mimes:jpeg,png,jpg,pdf|max:2048',
                 'leaveType' => 'required|string',
             ]);
@@ -68,6 +72,10 @@ class WorkerController extends Controller
     
     public function myLeaves(){
         try {
+            $user = Auth::user();
+            if ($user->role != 'officeWorker') {
+                return response()->json(['error' => 'Only office worker can view their leaves'], 403);
+            }
             $user_id=auth()->user()->id;
             $products = Leave::where('userId',$user_id)->get();
             $success = 'Leaves';
@@ -86,6 +94,10 @@ class WorkerController extends Controller
             ]);
             if ($validatedData->fails()) {
                 return response()->json(['error' => $validatedData->errors()], 400);
+            }
+            $user = Auth::user();
+            if ($user->role != 'siteWorker' && $user->role != 'supervisor') {
+                return response()->json(['error' => 'Only site workers and supervisers can post attendence.'], 403);
             }
             $userId=auth()->user()->id;
             $checkinPhoto = $request->file('checkinPhoto');
@@ -120,25 +132,20 @@ class WorkerController extends Controller
     }
     public function checkout(Request $request)
     {
-        $user_id = auth()->user()->id;
-    
-        // Find the attendance record for the user
-        $leave = attendance::where('uid', $user_id)->first();
-        if (!$leave) {
-            return response()->json(['error' => 'Attendance record not found'], 404);
-        }
-    
-        // Validate request inputs
         $validator = Validator::make($request->all(), [
+            'id' => 'required',
             'checkout' => 'required',
             'checkoutPhoto' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
-    
         if ($validator->fails()) {
             return response()->json(['error' => $validator->errors()], 400);
         }
-    
-        // Process checkout photo
+        $id = $request->id;
+        $login_id = auth()->user()->id;;
+        $leave = attendance::where('uid', $login_id)->where('id', $id)->first();
+        if (!$leave) {
+            return response()->json(['error' => 'Attendance record not found'], 404);
+        }
         $checkoutPhoto = $request->file('checkoutPhoto');
         $liveURL = "http://constructionapp.wantar-system.com/uploads/";
         $checkoutPhoto_name = $liveURL . time() . "_" . $checkoutPhoto->getClientOriginalName();
@@ -147,6 +154,7 @@ class WorkerController extends Controller
     
         // Update the leave record
         $leave->checkout = $request->checkout;
+        $leave->overtime = $request->overtime;
         $leave->checkoutPhoto = $checkoutPhoto_name;
         $leave->status = "complete";
         $leave->save();
@@ -156,6 +164,10 @@ class WorkerController extends Controller
     
     public function myAttendance(){
         try {
+            $user = Auth::user();
+            if ($user->role != 'siteWorker' && $user->role != 'supervisor') {
+                return response()->json(['error' => 'Only site workers and supervisers can post and view their attendence.'], 403);
+            }
             $user_id=auth()->user()->id;
             $att = Attendance::where('uid',$user_id)->get();
             $success = 'Attendance';

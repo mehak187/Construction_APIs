@@ -30,5 +30,6 @@ class attendance extends Model
         'project_name',
         'checkinPhoto',
         'checkoutPhoto',
+        'overtime'
     ];
 }
