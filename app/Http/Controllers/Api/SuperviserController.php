@@ -43,4 +43,30 @@ class SuperviserController extends Controller
             return $this->sendError('Error.', $e->getMessage());    
         }
     }
+    public function myWorkersAttendance(){
+        try {
+            $user = Auth::user();
+            $user_id=auth()->user()->id;
+            if ($user->role != 'supervisor') {
+                return response()->json(['error' => 'Only superviser can access this'], 403);
+            }
+            $data = attendance::leftJoin('nickyClockinSystem_users', 'attendances.uid', '=', 'nickyClockinSystem_users.id')
+            ->select(
+                'nickyClockinSystem_users.name as uname',
+                'nickyClockinSystem_users.role as role',
+                'nickyClockinSystem_users.lastname',
+                'nickyClockinSystem_users.staff_id',
+                'attendances.*',
+            )
+            ->where('attendances.superviserid', $user_id)
+            ->where('attendances.superviserid', '!=', 0)
+            ->orderBy('attendances.id', 'desc')
+            ->get();
+
+            $success = 'Attendance';
+            return $this->sendJsonResponse($success, $data);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());    
+        }
+    }
 }

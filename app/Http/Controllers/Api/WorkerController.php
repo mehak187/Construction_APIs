@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Leave;
 use App\Models\attendance;
+use App\Models\SiteManagement;
 use Validator;
 use Mail;
 use Illuminate\Support\Str;
@@ -91,6 +92,7 @@ class WorkerController extends Controller
                 'checkinPhoto' => 'required',
                 'checkin' => 'required',
                 'project_name' => 'required',
+                'superviserid' => 'required',
             ]);
             if ($validatedData->fails()) {
                 return response()->json(['error' => $validatedData->errors()], 400);
@@ -101,21 +103,14 @@ class WorkerController extends Controller
             }
             $userId=auth()->user()->id;
             $checkinPhoto = $request->file('checkinPhoto');
-            // $checkoutPhoto = $request->file('checkoutPhoto');
-            // ------for live---------
-            // $liveURL = "http://constructionapp.wantar-system.com/uploads/";
-            // $checkinPhoto_name = $liveURL . time() . "_" . $checkinPhoto->getClientOriginalName();
-            $checkinPhoto_name = time() . "_" .$checkinPhoto->getClientOriginalName();
+            // $checkinPhoto_name = time() . "_" .$checkinPhoto->getClientOriginalName();
+            // $destinationpath = public_path('uploads/');
+            // $checkinPhoto->move($destinationpath,$checkinPhoto_name);
+               // ------for live---------
+            $liveURL = "http://constructionapp.wantar-system.com/uploads/";
+            $checkinPhoto_name = $liveURL . time() . "_" . $checkinPhoto->getClientOriginalName();
             $destinationpath = public_path('uploads/');
             $checkinPhoto->move($destinationpath,$checkinPhoto_name);
-            
-
-            // ------for live---------
-            // $liveURL = "http://constructionapp.wantar-system.com/uploads/";
-            // $checkoutPhoto_name = $liveURL . time() . "_" . $checkoutPhoto->getClientOriginalName();
-            // $checkoutPhoto_name = time() . "_" .$checkoutPhoto->getClientOriginalName();
-            // $destinationpath = public_path('uploads/');
-            // $checkoutPhoto->move($destinationpath,$checkoutPhoto_name);
 
             $input = $request->all();
             $input['uid'] = $userId;
@@ -123,6 +118,9 @@ class WorkerController extends Controller
             $input['checkinPhoto'] = $checkinPhoto_name;
             $input['checkout'] = "";
             $input['checkoutPhoto'] = "";
+            if(auth()->user()->role=="supervisor"){
+                $input['superviserid'] = 0;
+            }
             $user = Attendance::create($input);
             return response()->json(['msg' => 'You are checked in successfully.'], 201);
         } 
@@ -147,6 +145,7 @@ class WorkerController extends Controller
             return response()->json(['error' => 'Attendance record not found'], 404);
         }
         $checkoutPhoto = $request->file('checkoutPhoto');
+
         $liveURL = "http://constructionapp.wantar-system.com/uploads/";
         $checkoutPhoto_name = $liveURL . time() . "_" . $checkoutPhoto->getClientOriginalName();
         $destinationPath = public_path('uploads/');
@@ -176,4 +175,24 @@ class WorkerController extends Controller
             return $this->sendError('Error.', $e->getMessage());    
         }
     }
+    public function myprojects(){
+        try {
+            $user_id=auth()->user()->id;
+
+            if(auth()->user()->role=="supervisor") {
+                $projects = SiteManagement::where('supervisor',$user_id)->get();
+            }
+            elseif(auth()->user()->role=="siteWorker"){
+                $projects = SiteManagement::where('employees',$user_id)->get();
+            }
+            else{
+                $projects = "";
+            }
+            $success = 'Projects';
+            return $this->sendJsonResponse($success, $projects);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());    
+        }
+    }
+    
 }

@@ -36,6 +36,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('checkin', 'checkin');
         Route::post('checkout', 'checkout');
         Route::get('myAttendance', 'myAttendance');
+        Route::get('myprojects', 'myprojects');
     });
 });
 Route::group(['middleware' => ['auth:sanctum']], function () {
@@ -48,6 +49,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::controller(SuperviserController::class)->group(function(){
         Route::get('allAttendance', 'allAttendance');
+        Route::get('myWorkersAttendance', 'myWorkersAttendance');
     });
 });
 
