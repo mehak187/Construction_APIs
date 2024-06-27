@@ -177,22 +177,56 @@ class WorkerController extends Controller
     }
     public function myprojects(){
         try {
-            $user_id=auth()->user()->id;
-
-            if(auth()->user()->role=="supervisor") {
-                $projects = SiteManagement::where('supervisor',$user_id)->get();
+            $user_id = auth()->user()->id;
+            $baseUrl = config('app.url'); // Replace with your base URL
+    
+            if(auth()->user()->role == "supervisor") {
+                $projects = SiteManagement::leftJoin('nickyClockinSystem_users', 'nickyClockinSystem_site_management.employees', '=', 'nickyClockinSystem_users.id')
+                    ->select(
+                        'nickyClockinSystem_users.name as uname',
+                        'nickyClockinSystem_users.staff_id',
+                        'nickyClockinSystem_site_management.*',
+                    )->where('supervisor', $user_id)->get();
+            } elseif(auth()->user()->role == "siteWorker") {
+                $projects = SiteManagement::where('employees', $user_id)->get();
+            } else {
+                $projects = collect(); // Return an empty collection if no role matches
             }
-            elseif(auth()->user()->role=="siteWorker"){
-                $projects = SiteManagement::where('employees',$user_id)->get();
-            }
-            else{
-                $projects = "";
-            }
+    
+            // Transform images field to full URLs
+            $projects->transform(function ($project) use ($baseUrl) {
+                if (isset($project->Images)) {
+                    $images = json_decode($project->Images, true);
+                    $project->Images = collect($images)->map(function ($image) use ($baseUrl) {
+                        return $baseUrl . '/uploads/' .$image;
+                    })->toArray();
+                }
+                return $project;
+            });
+    
             $success = 'Projects';
             return $this->sendJsonResponse($success, $projects);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());
+        }
+    }
+    public function allProjects(){
+        try {
+            $user = Auth::user();
+            if ($user->role != 'officeWorker') {
+                return response()->json(['error' => 'Only office workers can access this.'], 403);
+            }
+            $user_id=auth()->user()->id;
+            $SiteManagement = SiteManagement::leftJoin('nickyClockinSystem_users', 'nickyClockinSystem_site_management.employees', '=', 'nickyClockinSystem_users.id')
+            ->select(
+                'nickyClockinSystem_users.name as uname',
+                'nickyClockinSystem_users.staff_id',
+                'nickyClockinSystem_site_management.*',
+            )->get();
+            $success = 'Attendance';
+            return $this->sendJsonResponse($success, $SiteManagement);
         } catch (\Exception $e) {
             return $this->sendError('Error.', $e->getMessage());    
         }
     }
-    
 }

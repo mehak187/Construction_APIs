@@ -37,6 +37,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('checkout', 'checkout');
         Route::get('myAttendance', 'myAttendance');
         Route::get('myprojects', 'myprojects');
+        Route::get('allProjects', 'allProjects');
     });
 });
 Route::group(['middleware' => ['auth:sanctum']], function () {
