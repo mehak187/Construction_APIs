@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\WorkerController;
 use App\Http\Controllers\Api\HRController;
 use App\Http\Controllers\Api\SuperviserController;
+use App\Http\Controllers\Api\CommonController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -38,6 +40,15 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::get('myAttendance', 'myAttendance');
         Route::get('myprojects', 'myprojects');
         Route::get('allProjects', 'allProjects');
+        Route::post('saveProjects', 'saveProjects');
+    });
+});
+Route::group(['middleware' => ['auth:sanctum']], function () {
+    Route::controller(CommonController::class)->group(function(){
+        Route::get('myprofile', 'myprofile');
+        Route::get('empProfile', 'empProfile');
+        Route::post('todayAttendance', 'todayAttendance');
+        Route::post('mysalary', 'mysalary');
     });
 });
 Route::group(['middleware' => ['auth:sanctum']], function () {

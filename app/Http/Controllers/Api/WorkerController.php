@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\Leave;
 use App\Models\attendance;
 use App\Models\SiteManagement;
+use Illuminate\Support\Facades\DB;
 use Validator;
 use Mail;
 use Illuminate\Support\Str;
@@ -25,6 +26,264 @@ class WorkerController extends Controller
     { 
         $userId=auth()->user()->id;
         echo $userId;die();
+    }
+    public function checkin(Request $request){ 
+        try {
+            $validatedData = Validator::make($request->all(), [
+                'location' => 'required',
+                'checkinPhoto' => 'required',
+                'checkin' => 'required',
+                'project_name' => 'required',
+                'superviserid' => 'required',
+            ]);
+            if ($validatedData->fails()) {
+                return response()->json(['error' => $validatedData->errors()], 400);
+            }
+            $user = Auth::user();
+            if ($user->role != 'siteWorker' && $user->role != 'supervisor') {
+                return response()->json(['error' => 'Only site workers and supervisers can post attendence.'], 403);
+            }
+            $userId=auth()->user()->id;
+            $checkinPhoto = $request->file('checkinPhoto');
+            // $checkinPhoto_name = time() . "_" .$checkinPhoto->getClientOriginalName();
+            // $destinationpath = public_path('uploads/');
+            // $checkinPhoto->move($destinationpath,$checkinPhoto_name);
+               // ------for live---------
+            $liveURL = "http://constructionapp.wantar-system.com/uploads/";
+            $checkinPhoto_name = $liveURL . time() . "_" . $checkinPhoto->getClientOriginalName();
+            $destinationpath = public_path('uploads/');
+            $checkinPhoto->move($destinationpath,$checkinPhoto_name);
+
+            $input = $request->all();
+            $input['uid'] = $userId;
+            $input['status'] = "incomplete";
+            $input['checkinPhoto'] = $checkinPhoto_name;
+            $input['checkout'] = "";
+            $input['checkoutPhoto'] = "";
+            if(auth()->user()->role=="supervisor"){
+                $input['superviserid'] = 0;
+            }
+            $user = attendance::create($input);
+            return response()->json(['msg' => 'You are checked in successfully.'], 201);
+        } 
+            catch (\Exception $e) {
+                return $this->sendError('Error.', $e->getMessage());    
+            }
+    }
+    public function checkout(Request $request){
+        $validator = Validator::make($request->all(), [
+            'id' => 'required',
+            'checkout' => 'required',
+            'checkoutPhoto' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 400);
+        }
+        $id = $request->id;
+        $login_id = auth()->user()->id;;
+        $leave = attendance::where('uid', $login_id)->where('id', $id)->first();
+        if (!$leave) {
+            return response()->json(['error' => 'Attendance record not found'], 404);
+        }
+        $checkoutPhoto = $request->file('checkoutPhoto');
+
+        $liveURL = "http://constructionapp.wantar-system.com/uploads/";
+        $checkoutPhoto_name = $liveURL . time() . "_" . $checkoutPhoto->getClientOriginalName();
+        $destinationPath = public_path('uploads/');
+        $checkoutPhoto->move($destinationPath, $checkoutPhoto_name);
+    
+        // Update the leave record
+        $leave->checkout = $request->checkout;
+        $leave->overtime = $request->overtime;
+        $leave->checkoutPhoto = $checkoutPhoto_name;
+        $leave->status = "complete";
+        $leave->save();
+    
+        return response()->json(['message' => 'You are checked out successfully']);
+    }
+    public function myAttendance(){
+        try {
+            $user = Auth::user();
+            if ($user->role != 'siteWorker' && $user->role != 'supervisor') {
+                return response()->json(['error' => 'Only site workers and supervisers can post and view their attendence.'], 403);
+            }
+            $user_id=auth()->user()->id;
+            $att = attendance::where('uid',$user_id)->get();
+            $success = 'Attendance';
+            return $this->sendJsonResponse($success, $att);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());    
+        }
+    }
+    public function myprojects() {
+        try {
+            $user_id = auth()->user()->id;
+            $baseUrl = config('app.url'); // Replace with your base URL
+            if (auth()->user()->role == "supervisor") {
+                $projects = SiteManagement::leftJoin('nickyClockinSystem_users as supervisor', 'nickyClockinSystem_site_management.supervisor', '=', 'supervisor.id')
+                    ->select(
+                        'supervisor.name as supervisor_name',
+                        'supervisor.staff_id',
+                        'nickyClockinSystem_site_management.*'
+                    )->where('supervisor', $user_id)->get();
+            } 
+         elseif (auth()->user()->role == "siteWorker") {
+            $projects = SiteManagement::all()->filter(function ($project) use ($user_id) {
+                $employee_ids = unserialize($project->employees);
+                return is_array($employee_ids) && in_array($user_id, $employee_ids);
+            })->values(); // Reset array keys
+        }
+            else {
+                $projects = collect(); // Return an empty collection if no role matches
+            }
+            $projects->transform(function ($project) use ($baseUrl) {
+                $employee_names = [];
+                $employee_ids = [];
+    
+                if (!empty($project->employees)) {
+                    $employee_ids = unserialize($project->employees);
+    
+                    if ($employee_ids !== false && is_array($employee_ids)) {
+                        $employees = DB::table('nickyClockinSystem_users')->whereIn('id', $employee_ids)->pluck('name')->toArray();
+                        $employee_names = $employees;
+                    }
+                }
+    
+            // Add employee IDs to the project
+                $project->employee_names = $employee_names; // Add employee names to the project
+                unset($project->employees);
+                if (!empty($project->Images)) {
+                    $images = json_decode($project->Images, true);
+                    $project->Images = collect($images)->map(function ($image) use ($baseUrl) {
+                        $image_path = trim($image, '[]"'); // Remove square brackets and quotes
+                        return $baseUrl . '/' . $image_path;
+                    })->toArray();
+                } else {
+                    $project->Images = [];
+                }
+                error_log('Image URLs for project ' . $project->id . ': ' . json_encode($project->Images));
+                return $project;
+            });
+            $success = 'Projects';
+            return $this->sendJsonResponse($success, $projects);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());
+        }
+    }
+
+
+    // --------------Office worker----------------
+    public function saveProjects(Request $request){ 
+        try {
+            $validatedData = Validator::make($request->all(), [
+                'Title' => 'required',
+                'Location' => 'required',
+                'Description' => 'required',
+                'supervisor' => 'required',
+                'employees' => 'required',
+                'Images' => 'required',
+                'lat' => 'required',
+                'lng' => 'required',
+            ]);
+
+            if ($validatedData->fails()) {
+                return response()->json(['error' => $validatedData->errors()], 400);
+            }
+
+            $user = Auth::user();
+            if ($user->role != 'officeWorker') {
+                return response()->json(['error' => 'Only office workers can access this.'], 403);
+            }
+
+            $checkinPhoto = $request->file('Images');
+                // ------for live---------
+            $liveURL = "http://constructionapp.wantar-system.com/uploads/";
+            $checkinPhoto_name = $liveURL . time() . "_" . $checkinPhoto->getClientOriginalName();
+            $destinationpath = public_path('uploads/');
+            $checkinPhoto->move($destinationpath,$checkinPhoto_name);
+
+            // Format image in the required format
+            $formattedImages = ["uploads/" . $checkinPhoto_name];
+
+            $input = $request->all();
+            $input['Images'] = $checkinPhoto_name; // store as JSON string
+
+            // Serialize employees
+            $input['employees'] = $this->serializeEmployees($request->input('employees'));
+
+            SiteManagement::create($input);
+            return response()->json(['msg' => 'Project Saved successfully.'], 201);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error.', 'message' => $e->getMessage()], 500);    
+        }
+    }
+    private function serializeEmployees($employees) {
+        $employeeArray = explode(',', $employees); // Convert comma-separated string to array if necessary
+        $serialized = 'a:' . count($employeeArray) . ':{';
+        foreach ($employeeArray as $index => $employee) {
+            $serialized .= 'i:' . $index . ';s:' . strlen($employee) . ':"' . $employee . '";';
+        }
+        $serialized .= '}';
+        return $serialized;
+    }
+    public function allProjects(){
+        // try {
+        //     $user = Auth::user();
+        //     if ($user->role != 'officeWorker') {
+        //         return response()->json(['error' => 'Only office workers can access this.'], 403);
+        //     }
+        //     $user_id=auth()->user()->id;
+        //     $SiteManagement = SiteManagement::leftJoin('nickyClockinSystem_users', 'nickyClockinSystem_site_management.employees', '=', 'nickyClockinSystem_users.id')
+        //     ->select(
+        //         'nickyClockinSystem_users.name as uname',
+        //         'nickyClockinSystem_users.staff_id',
+        //         'nickyClockinSystem_site_management.*',
+        //     )->get();
+        //     $success = 'Projects';
+        //     return $this->sendJsonResponse($success, $SiteManagement);
+        // } catch (\Exception $e) {
+        //     return $this->sendError('Error.', $e->getMessage());    
+        // }
+        try {
+            $user_id = auth()->user()->id;
+            $baseUrl = config('app.url'); // Replace with your base URL
+            $projects = SiteManagement::leftJoin('nickyClockinSystem_users as supervisor', 'nickyClockinSystem_site_management.supervisor', '=', 'supervisor.id')
+            ->select(
+                'supervisor.name as supervisor_name',
+                'supervisor.staff_id',
+                'nickyClockinSystem_site_management.*'
+            )->get();        
+            $projects->transform(function ($project) use ($baseUrl) {
+                $employee_names = [];
+                $employee_ids = [];
+    
+                if (!empty($project->employees)) {
+                    $employee_ids = unserialize($project->employees);
+    
+                    if ($employee_ids !== false && is_array($employee_ids)) {
+                        $employees = DB::table('nickyClockinSystem_users')->whereIn('id', $employee_ids)->pluck('name')->toArray();
+                        $employee_names = $employees;
+                    }
+                }
+                $project->employee_names = $employee_names; // Add employee names to the project
+                unset($project->employees);
+                if (!empty($project->Images)) {
+                    $images = json_decode($project->Images, true);
+                    $project->Images = collect($images)->map(function ($image) use ($baseUrl) {
+                        $image_path = trim($image, '[]"'); // Remove square brackets and quotes
+                        return $baseUrl . '/' . $image_path;
+                    })->toArray();
+                } else {
+                    $project->Images = [];
+                }
+                error_log('Image URLs for project ' . $project->id . ': ' . json_encode($project->Images));
+                return $project;
+            });
+            $success = 'Projects';
+            return $this->sendJsonResponse($success, $projects);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());
+        }
     }
     public function leave(Request $request){ 
         try {
@@ -70,7 +329,6 @@ class WorkerController extends Controller
             return response()->json(['error' => 'Error.', 'message' => $e->getMessage()], 500);
         }
     }
-    
     public function myLeaves(){
         try {
             $user = Auth::user();
@@ -81,150 +339,6 @@ class WorkerController extends Controller
             $products = Leave::where('userId',$user_id)->get();
             $success = 'Leaves';
             return $this->sendJsonResponse($success, $products);
-        } catch (\Exception $e) {
-            return $this->sendError('Error.', $e->getMessage());    
-        }
-    }
-    public function checkin(Request $request){ 
-        try {
-            $validatedData = Validator::make($request->all(), [
-                'location' => 'required',
-                'checkinPhoto' => 'required',
-                'checkin' => 'required',
-                'project_name' => 'required',
-                'superviserid' => 'required',
-            ]);
-            if ($validatedData->fails()) {
-                return response()->json(['error' => $validatedData->errors()], 400);
-            }
-            $user = Auth::user();
-            if ($user->role != 'siteWorker' && $user->role != 'supervisor') {
-                return response()->json(['error' => 'Only site workers and supervisers can post attendence.'], 403);
-            }
-            $userId=auth()->user()->id;
-            $checkinPhoto = $request->file('checkinPhoto');
-            // $checkinPhoto_name = time() . "_" .$checkinPhoto->getClientOriginalName();
-            // $destinationpath = public_path('uploads/');
-            // $checkinPhoto->move($destinationpath,$checkinPhoto_name);
-               // ------for live---------
-            $liveURL = "http://constructionapp.wantar-system.com/uploads/";
-            $checkinPhoto_name = $liveURL . time() . "_" . $checkinPhoto->getClientOriginalName();
-            $destinationpath = public_path('uploads/');
-            $checkinPhoto->move($destinationpath,$checkinPhoto_name);
-
-            $input = $request->all();
-            $input['uid'] = $userId;
-            $input['status'] = "incomplete";
-            $input['checkinPhoto'] = $checkinPhoto_name;
-            $input['checkout'] = "";
-            $input['checkoutPhoto'] = "";
-            if(auth()->user()->role=="supervisor"){
-                $input['superviserid'] = 0;
-            }
-            $user = Attendance::create($input);
-            return response()->json(['msg' => 'You are checked in successfully.'], 201);
-        } 
-            catch (\Exception $e) {
-                return $this->sendError('Error.', $e->getMessage());    
-            }
-    }
-    public function checkout(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'id' => 'required',
-            'checkout' => 'required',
-            'checkoutPhoto' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
-        if ($validator->fails()) {
-            return response()->json(['error' => $validator->errors()], 400);
-        }
-        $id = $request->id;
-        $login_id = auth()->user()->id;;
-        $leave = attendance::where('uid', $login_id)->where('id', $id)->first();
-        if (!$leave) {
-            return response()->json(['error' => 'Attendance record not found'], 404);
-        }
-        $checkoutPhoto = $request->file('checkoutPhoto');
-
-        $liveURL = "http://constructionapp.wantar-system.com/uploads/";
-        $checkoutPhoto_name = $liveURL . time() . "_" . $checkoutPhoto->getClientOriginalName();
-        $destinationPath = public_path('uploads/');
-        $checkoutPhoto->move($destinationPath, $checkoutPhoto_name);
-    
-        // Update the leave record
-        $leave->checkout = $request->checkout;
-        $leave->overtime = $request->overtime;
-        $leave->checkoutPhoto = $checkoutPhoto_name;
-        $leave->status = "complete";
-        $leave->save();
-    
-        return response()->json(['message' => 'You are checked out successfully']);
-    }
-    
-    public function myAttendance(){
-        try {
-            $user = Auth::user();
-            if ($user->role != 'siteWorker' && $user->role != 'supervisor') {
-                return response()->json(['error' => 'Only site workers and supervisers can post and view their attendence.'], 403);
-            }
-            $user_id=auth()->user()->id;
-            $att = Attendance::where('uid',$user_id)->get();
-            $success = 'Attendance';
-            return $this->sendJsonResponse($success, $att);
-        } catch (\Exception $e) {
-            return $this->sendError('Error.', $e->getMessage());    
-        }
-    }
-    public function myprojects(){
-        try {
-            $user_id = auth()->user()->id;
-            $baseUrl = config('app.url'); // Replace with your base URL
-    
-            if(auth()->user()->role == "supervisor") {
-                $projects = SiteManagement::leftJoin('nickyClockinSystem_users', 'nickyClockinSystem_site_management.employees', '=', 'nickyClockinSystem_users.id')
-                    ->select(
-                        'nickyClockinSystem_users.name as uname',
-                        'nickyClockinSystem_users.staff_id',
-                        'nickyClockinSystem_site_management.*',
-                    )->where('supervisor', $user_id)->get();
-            } elseif(auth()->user()->role == "siteWorker") {
-                $projects = SiteManagement::where('employees', $user_id)->get();
-            } else {
-                $projects = collect(); // Return an empty collection if no role matches
-            }
-    
-            // Transform images field to full URLs
-            $projects->transform(function ($project) use ($baseUrl) {
-                if (isset($project->Images)) {
-                    $images = json_decode($project->Images, true);
-                    $project->Images = collect($images)->map(function ($image) use ($baseUrl) {
-                        return $baseUrl . '/uploads/' .$image;
-                    })->toArray();
-                }
-                return $project;
-            });
-    
-            $success = 'Projects';
-            return $this->sendJsonResponse($success, $projects);
-        } catch (\Exception $e) {
-            return $this->sendError('Error.', $e->getMessage());
-        }
-    }
-    public function allProjects(){
-        try {
-            $user = Auth::user();
-            if ($user->role != 'officeWorker') {
-                return response()->json(['error' => 'Only office workers can access this.'], 403);
-            }
-            $user_id=auth()->user()->id;
-            $SiteManagement = SiteManagement::leftJoin('nickyClockinSystem_users', 'nickyClockinSystem_site_management.employees', '=', 'nickyClockinSystem_users.id')
-            ->select(
-                'nickyClockinSystem_users.name as uname',
-                'nickyClockinSystem_users.staff_id',
-                'nickyClockinSystem_site_management.*',
-            )->get();
-            $success = 'Attendance';
-            return $this->sendJsonResponse($success, $SiteManagement);
         } catch (\Exception $e) {
             return $this->sendError('Error.', $e->getMessage());    
         }
