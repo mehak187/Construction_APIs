@@ -31,6 +31,7 @@ class SiteManagement extends Model
         'lat',
         'lng',
         'supervisor',
-        'employees'
+        'employees',
+        'role'
     ];
 }

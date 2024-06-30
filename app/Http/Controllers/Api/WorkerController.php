@@ -118,7 +118,6 @@ class WorkerController extends Controller
     public function myprojects() {
         try {
             $user_id = auth()->user()->id;
-            $baseUrl = config('app.url'); // Replace with your base URL
             if (auth()->user()->role == "supervisor") {
                 $projects = SiteManagement::leftJoin('nickyClockinSystem_users as supervisor', 'nickyClockinSystem_site_management.supervisor', '=', 'supervisor.id')
                     ->select(
@@ -127,16 +126,17 @@ class WorkerController extends Controller
                         'nickyClockinSystem_site_management.*'
                     )->where('supervisor', $user_id)->get();
             } 
-         elseif (auth()->user()->role == "siteWorker") {
-            $projects = SiteManagement::all()->filter(function ($project) use ($user_id) {
-                $employee_ids = unserialize($project->employees);
-                return is_array($employee_ids) && in_array($user_id, $employee_ids);
-            })->values(); // Reset array keys
-        }
+            elseif (auth()->user()->role == "siteWorker") {
+                $projects = SiteManagement::all()->filter(function ($project) use ($user_id) {
+                    $employee_ids = unserialize($project->employees);
+                    return is_array($employee_ids) && in_array($user_id, $employee_ids);
+                })->values(); // Reset array keys
+            }
             else {
                 $projects = collect(); // Return an empty collection if no role matches
             }
-            $projects->transform(function ($project) use ($baseUrl) {
+           
+            $projects->transform(function ($project) {
                 $employee_names = [];
                 $employee_ids = [];
     
@@ -149,9 +149,16 @@ class WorkerController extends Controller
                     }
                 }
     
-            // Add employee IDs to the project
                 $project->employee_names = $employee_names; // Add employee names to the project
                 unset($project->employees);
+                
+                // Determine the base URL based on the project's role
+                if ($project->role == 1) {
+                    $baseUrl = env('SUBAPP_URL');
+                } else {
+                    $baseUrl = config('app.url'); 
+                }
+    
                 if (!empty($project->Images)) {
                     $images = json_decode($project->Images, true);
                     $project->Images = collect($images)->map(function ($image) use ($baseUrl) {
@@ -161,19 +168,22 @@ class WorkerController extends Controller
                 } else {
                     $project->Images = [];
                 }
+    
                 error_log('Image URLs for project ' . $project->id . ': ' . json_encode($project->Images));
                 return $project;
             });
+            
             $success = 'Projects';
             return $this->sendJsonResponse($success, $projects);
         } catch (\Exception $e) {
             return $this->sendError('Error.', $e->getMessage());
         }
     }
+    
 
 
     // --------------Office worker----------------
-    public function saveProjects(Request $request){ 
+    public function saveProjects(Request $request) {
         try {
             $validatedData = Validator::make($request->all(), [
                 'Title' => 'required',
@@ -181,7 +191,7 @@ class WorkerController extends Controller
                 'Description' => 'required',
                 'supervisor' => 'required',
                 'employees' => 'required',
-                'Images' => 'required',
+                'Images' => 'required|array', // Add validation for each image
                 'lat' => 'required',
                 'lng' => 'required',
             ]);
@@ -195,18 +205,29 @@ class WorkerController extends Controller
                 return response()->json(['error' => 'Only office workers can access this.'], 403);
             }
 
-            $checkinPhoto = $request->file('Images');
-                // ------for live---------
-            $liveURL = "http://constructionapp.wantar-system.com/uploads/";
-            $checkinPhoto_name = $liveURL . time() . "_" . $checkinPhoto->getClientOriginalName();
-            $destinationpath = public_path('uploads/');
-            $checkinPhoto->move($destinationpath,$checkinPhoto_name);
-
-            // Format image in the required format
-            $formattedImages = ["uploads/" . $checkinPhoto_name];
-
             $input = $request->all();
-            $input['Images'] = $checkinPhoto_name; // store as JSON string
+            $input['role'] = 1;
+            print_r( $input);die();
+            // Process Images
+            $imageUrls = [];
+            if ($request->hasFile('Images')) {
+                foreach ($request->file('Images') as $image) {
+                    $liveURL = "uploads/";
+                    $image_name = time() . "_" . $image->getClientOriginalName();
+                    $destinationPath = public_path('uploads/');
+                    $image->move($destinationPath, $image_name);
+                    $imageUrls[] = $liveURL . $image_name;
+                }
+            }
+
+            // Debugging statement
+            error_log('Image URLs: ' . json_encode($imageUrls));
+
+            // Format images as JSON
+            $input['Images'] = json_encode($imageUrls);
+
+            // Debugging statement
+            error_log('JSON Encoded Images: ' . $input['Images']);
 
             // Serialize employees
             $input['employees'] = $this->serializeEmployees($request->input('employees'));
@@ -246,17 +267,21 @@ class WorkerController extends Controller
         // }
         try {
             $user_id = auth()->user()->id;
-            $baseUrl = config('app.url'); // Replace with your base URL
             $projects = SiteManagement::leftJoin('nickyClockinSystem_users as supervisor', 'nickyClockinSystem_site_management.supervisor', '=', 'supervisor.id')
             ->select(
                 'supervisor.name as supervisor_name',
                 'supervisor.staff_id',
                 'nickyClockinSystem_site_management.*'
             )->get();        
-            $projects->transform(function ($project) use ($baseUrl) {
+                $projects->transform(function ($project) use ($baseUrl) {
                 $employee_names = [];
                 $employee_ids = [];
-    
+                if($projects->role==1){
+                    $baseUrl = env('SUBAPP_URL');
+                }
+                else{
+                    $baseUrl = config('app.url'); 
+                }
                 if (!empty($project->employees)) {
                     $employee_ids = unserialize($project->employees);
     
