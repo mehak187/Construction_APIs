@@ -207,7 +207,6 @@ class WorkerController extends Controller
 
             $input = $request->all();
             $input['role'] = 1;
-            print_r( $input);die();
             // Process Images
             $imageUrls = [];
             if ($request->hasFile('Images')) {
@@ -247,69 +246,59 @@ class WorkerController extends Controller
         $serialized .= '}';
         return $serialized;
     }
-    public function allProjects(){
-        // try {
-        //     $user = Auth::user();
-        //     if ($user->role != 'officeWorker') {
-        //         return response()->json(['error' => 'Only office workers can access this.'], 403);
-        //     }
-        //     $user_id=auth()->user()->id;
-        //     $SiteManagement = SiteManagement::leftJoin('nickyClockinSystem_users', 'nickyClockinSystem_site_management.employees', '=', 'nickyClockinSystem_users.id')
-        //     ->select(
-        //         'nickyClockinSystem_users.name as uname',
-        //         'nickyClockinSystem_users.staff_id',
-        //         'nickyClockinSystem_site_management.*',
-        //     )->get();
-        //     $success = 'Projects';
-        //     return $this->sendJsonResponse($success, $SiteManagement);
-        // } catch (\Exception $e) {
-        //     return $this->sendError('Error.', $e->getMessage());    
-        // }
-        try {
-            $user_id = auth()->user()->id;
-            $projects = SiteManagement::leftJoin('nickyClockinSystem_users as supervisor', 'nickyClockinSystem_site_management.supervisor', '=', 'supervisor.id')
+    public function allProjects() {
+    try {
+        $user_id = auth()->user()->id;
+        $projects = SiteManagement::leftJoin('nickyClockinSystem_users as supervisor', 'nickyClockinSystem_site_management.supervisor', '=', 'supervisor.id')
             ->select(
                 'supervisor.name as supervisor_name',
                 'supervisor.staff_id',
                 'nickyClockinSystem_site_management.*'
-            )->get();        
-                $projects->transform(function ($project) use ($baseUrl) {
-                $employee_names = [];
-                $employee_ids = [];
-                if($projects->role==1){
-                    $baseUrl = env('SUBAPP_URL');
+            )->get();
+
+        $projects->transform(function ($project) {
+            $employee_names = [];
+            $employee_ids = [];
+
+            if (!empty($project->employees)) {
+                $employee_ids = unserialize($project->employees);
+
+                if ($employee_ids !== false && is_array($employee_ids)) {
+                    $employees = DB::table('nickyClockinSystem_users')->whereIn('id', $employee_ids)->pluck('name')->toArray();
+                    $employee_names = $employees;
                 }
-                else{
-                    $baseUrl = config('app.url'); 
-                }
-                if (!empty($project->employees)) {
-                    $employee_ids = unserialize($project->employees);
-    
-                    if ($employee_ids !== false && is_array($employee_ids)) {
-                        $employees = DB::table('nickyClockinSystem_users')->whereIn('id', $employee_ids)->pluck('name')->toArray();
-                        $employee_names = $employees;
-                    }
-                }
-                $project->employee_names = $employee_names; // Add employee names to the project
-                unset($project->employees);
-                if (!empty($project->Images)) {
-                    $images = json_decode($project->Images, true);
-                    $project->Images = collect($images)->map(function ($image) use ($baseUrl) {
-                        $image_path = trim($image, '[]"'); // Remove square brackets and quotes
-                        return $baseUrl . '/' . $image_path;
-                    })->toArray();
-                } else {
-                    $project->Images = [];
-                }
-                error_log('Image URLs for project ' . $project->id . ': ' . json_encode($project->Images));
-                return $project;
-            });
-            $success = 'Projects';
-            return $this->sendJsonResponse($success, $projects);
-        } catch (\Exception $e) {
-            return $this->sendError('Error.', $e->getMessage());
-        }
+            }
+            $project->employee_names = $employee_names; // Add employee names to the project
+            unset($project->employees);
+
+            // Determine the base URL based on the project's role
+            if ($project->role == 1) {
+                $baseUrl = env('SUBAPP_URL');
+            } else {
+                $baseUrl = config('app.url');
+            }
+
+            if (!empty($project->Images)) {
+                $images = json_decode($project->Images, true);
+                $project->Images = collect($images)->map(function ($image) use ($baseUrl) {
+                    $image_path = trim($image, '[]"'); // Remove square brackets and quotes
+                    return $baseUrl . '/' . $image_path;
+                })->toArray();
+            } else {
+                $project->Images = [];
+            }
+
+            error_log('Image URLs for project ' . $project->id . ': ' . json_encode($project->Images));
+            return $project;
+        });
+
+        $success = 'Projects';
+        return $this->sendJsonResponse($success, $projects);
+    } catch (\Exception $e) {
+        return $this->sendError('Error.', $e->getMessage());
     }
+}
+
     public function leave(Request $request){ 
         try {
             $user = Auth::user();
