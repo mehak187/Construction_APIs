@@ -48,35 +48,6 @@ class AuthController extends Controller
             }
 
     }
-    public function registerMerchant(Request $request){
-            \DB::beginTransaction();
-            try{
-            $validator = Validator::make($request->all(), [
-                'name' => 'required',
-                'email' => 'required|email|unique:users,email',
-                'password' => 'required',
-            ]);
-
-            if($validator->fails()){
-                return $this->sendAuthError('Validation Error.', $validator->errors());       
-            }
-
-            $input = $request->all();
-            $input['password'] = bcrypt($input['password']);
-            $input['role'] = 'merchant';
-            $user = User::create($input);
-            $data['token'] =  $user->createToken('MyApp')->plainTextToken;
-            $data['name'] =  $user->name;
-            $data['role'] =  $user->role;
-            \DB::commit();
-            return $this->sendResponse('User register successfully.',$data);
-            
-            } catch (\Exception $e) {
-                \DB::rollback();
-                return $this->sendAuthError('Error.', $e->getMessage());    
-            }
-
-    }
     public function login(Request $request) {
         try {
             $validator = Validator::make($request->all(), [
