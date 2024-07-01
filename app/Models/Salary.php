@@ -24,13 +24,11 @@ class Salary extends Model
     protected $fillable = [
         'start_date	',
         'end_date',
-        'Description',
-        'Images',
+        'employee',
         'timeAdded',
         'userId',
-        'lat',
-        'lng',
-        'supervisor',
-        'employees'
+        'days',
+        'time',
+        'pay',
     ];
 }

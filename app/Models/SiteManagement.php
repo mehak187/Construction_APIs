@@ -32,6 +32,7 @@ class SiteManagement extends Model
         'lng',
         'supervisor',
         'employees',
-        'role'
+        'role',
+        'projectCode'
     ];
 }

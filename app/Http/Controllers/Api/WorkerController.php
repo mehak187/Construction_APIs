@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\Leave;
 use App\Models\attendance;
 use App\Models\SiteManagement;
+use App\Models\Salary;
 use Illuminate\Support\Facades\DB;
 use Validator;
 use Mail;
@@ -108,7 +109,7 @@ class WorkerController extends Controller
                 return response()->json(['error' => 'Only site workers and supervisers can post and view their attendence.'], 403);
             }
             $user_id=auth()->user()->id;
-            $att = attendance::where('uid',$user_id)->get();
+            $att = attendance::where('uid',$user_id)->orderBy('id', 'desc')->get();
             $success = 'Attendance';
             return $this->sendJsonResponse($success, $att);
         } catch (\Exception $e) {
@@ -124,7 +125,7 @@ class WorkerController extends Controller
                         'supervisor.name as supervisor_name',
                         'supervisor.staff_id',
                         'nickyClockinSystem_site_management.*'
-                    )->where('supervisor', $user_id)->get();
+                    )->where('supervisor', $user_id)->orderBy('nickyClockinSystem_site_management.id', 'desc')->get();
             } 
             elseif (auth()->user()->role == "siteWorker") {
                 $projects = SiteManagement::all()->filter(function ($project) use ($user_id) {
@@ -247,57 +248,57 @@ class WorkerController extends Controller
         return $serialized;
     }
     public function allProjects() {
-    try {
-        $user_id = auth()->user()->id;
-        $projects = SiteManagement::leftJoin('nickyClockinSystem_users as supervisor', 'nickyClockinSystem_site_management.supervisor', '=', 'supervisor.id')
-            ->select(
-                'supervisor.name as supervisor_name',
-                'supervisor.staff_id',
-                'nickyClockinSystem_site_management.*'
-            )->get();
+        try {
+            $user_id = auth()->user()->id;
+            $projects = SiteManagement::leftJoin('nickyClockinSystem_users as supervisor', 'nickyClockinSystem_site_management.supervisor', '=', 'supervisor.id')
+                ->select(
+                    'supervisor.name as supervisor_name',
+                    'supervisor.staff_id',
+                    'nickyClockinSystem_site_management.*'
+                )->orderBy('nickyClockinSystem_site_management.id', 'desc')->get();
 
-        $projects->transform(function ($project) {
-            $employee_names = [];
-            $employee_ids = [];
+            $projects->transform(function ($project) {
+                $employee_names = [];
+                $employee_ids = [];
 
-            if (!empty($project->employees)) {
-                $employee_ids = unserialize($project->employees);
+                if (!empty($project->employees)) {
+                    $employee_ids = unserialize($project->employees);
 
-                if ($employee_ids !== false && is_array($employee_ids)) {
-                    $employees = DB::table('nickyClockinSystem_users')->whereIn('id', $employee_ids)->pluck('name')->toArray();
-                    $employee_names = $employees;
+                    if ($employee_ids !== false && is_array($employee_ids)) {
+                        $employees = DB::table('nickyClockinSystem_users')->whereIn('id', $employee_ids)->pluck('name')->toArray();
+                        $employee_names = $employees;
+                    }
                 }
-            }
-            $project->employee_names = $employee_names; // Add employee names to the project
-            unset($project->employees);
+                $project->employee_names = $employee_names; // Add employee names to the project
+                unset($project->employees);
 
-            // Determine the base URL based on the project's role
-            if ($project->role == 1) {
-                $baseUrl = env('SUBAPP_URL');
-            } else {
-                $baseUrl = config('app.url');
-            }
+                // Determine the base URL based on the project's role
+                if ($project->role == 1) {
+                    $baseUrl = env('SUBAPP_URL');
+                } else {
+                    $baseUrl = config('app.url');
+                }
 
-            if (!empty($project->Images)) {
-                $images = json_decode($project->Images, true);
-                $project->Images = collect($images)->map(function ($image) use ($baseUrl) {
-                    $image_path = trim($image, '[]"'); // Remove square brackets and quotes
-                    return $baseUrl . '/' . $image_path;
-                })->toArray();
-            } else {
-                $project->Images = [];
-            }
+                if (!empty($project->Images)) {
+                    $images = json_decode($project->Images, true);
+                    $project->Images = collect($images)->map(function ($image) use ($baseUrl) {
+                        $image_path = trim($image, '[]"'); // Remove square brackets and quotes
+                        return $baseUrl . '/' . $image_path;
+                    })->toArray();
+                } else {
+                    $project->Images = [];
+                }
 
-            error_log('Image URLs for project ' . $project->id . ': ' . json_encode($project->Images));
-            return $project;
-        });
+                error_log('Image URLs for project ' . $project->id . ': ' . json_encode($project->Images));
+                return $project;
+            });
 
-        $success = 'Projects';
-        return $this->sendJsonResponse($success, $projects);
-    } catch (\Exception $e) {
-        return $this->sendError('Error.', $e->getMessage());
+            $success = 'Projects';
+            return $this->sendJsonResponse($success, $projects);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());
+        }
     }
-}
 
     public function leave(Request $request){ 
         try {
@@ -350,11 +351,34 @@ class WorkerController extends Controller
                 return response()->json(['error' => 'Only office worker can view their leaves'], 403);
             }
             $user_id=auth()->user()->id;
-            $products = Leave::where('userId',$user_id)->get();
+            $leaves = Leave::where('userId',$user_id)->orderBy('id', 'desc')->get();
             $success = 'Leaves';
-            return $this->sendJsonResponse($success, $products);
+            return $this->sendJsonResponse($success, $leaves);
         } catch (\Exception $e) {
             return $this->sendError('Error.', $e->getMessage());    
         }
+    }
+    public function addsalary(Request $request){ 
+        try {
+            $user = Auth::user();
+            if ($user->role != 'officeWorker') {
+                return response()->json(['error' => 'Only office worker can access this'], 403);
+            }
+            $validatedData = Validator::make($request->all(), [
+                'start_date' => 'required',
+                'end_date' => 'required',
+                'userId' => 'required',
+                'pay' => 'required',
+            ]);
+            if ($validatedData->fails()) {
+                return response()->json(['error' => $validatedData->errors()], 400);
+            }
+            $input = $request->all();
+            $user = Salary::create($input);
+            return response()->json(['msg' => 'Salary added successfully.'], 201);
+        } 
+            catch (\Exception $e) {
+                return $this->sendError('Error.', $e->getMessage());    
+            }
     }
 }
