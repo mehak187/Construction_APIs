@@ -381,4 +381,20 @@ class WorkerController extends Controller
                 return $this->sendError('Error.', $e->getMessage());    
             }
     }
+    public function updateLeave(Request $request){
+        $user = Auth::user();
+        if ($user->role != 'officeWorker') {
+            return response()->json(['error' => 'Only office worker can access this'], 403);
+        }
+        $validatedData = Validator::make($request->all(), [
+            'id' => 'required',
+        ]);
+        if ($validatedData->fails()) {
+            return response()->json(['error' => $validatedData->errors()], 400);
+        }
+        $data = $request->all();
+        $leave=Leave::find($request->id);
+        $leave->update($data);
+        return response()->json(['message' => 'Leave updated successfully']);
+    }
 }

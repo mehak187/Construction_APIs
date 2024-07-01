@@ -32,16 +32,18 @@ Route::controller(AuthController::class)->group(function(){
 });
 Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::controller(WorkerController::class)->group(function(){
-        Route::post('leave', 'leave');
-        Route::get('myLeaves', 'myLeaves');
         Route::get('test', 'test');
         Route::post('checkin', 'checkin');
         Route::post('checkout', 'checkout');
         Route::get('myAttendance', 'myAttendance');
         Route::get('myprojects', 'myprojects');
+        
+        Route::post('leave', 'leave');
+        Route::get('myLeaves', 'myLeaves');
         Route::get('allProjects', 'allProjects');
         Route::post('saveProjects', 'saveProjects');
         Route::post('addSalary', 'addSalary');
+        Route::post('updateLeave', 'updateLeave');
     });
 });
 Route::group(['middleware' => ['auth:sanctum']], function () {
