@@ -397,4 +397,17 @@ class WorkerController extends Controller
         $leave->update($data);
         return response()->json(['message' => 'Leave updated successfully']);
     }
+    public function allSalary(){
+        try {
+            $user = Auth::user();
+            if ($user->role != 'officeWorker') {
+                return response()->json(['error' => 'Only office workers can access this.'], 403);
+            }
+            $salary = Salary::all();
+            $success = 'Salary';
+            return $this->sendJsonResponse($success, $salary);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());    
+        }
+    }
 }

@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\Leave;
 use App\Models\attendance;
 use App\Models\SiteManagement;
+use App\Models\Salary;
 use Validator;
 use Mail;
 use Illuminate\Support\Str;
@@ -58,5 +59,18 @@ class CommonController extends Controller
             return response()->json(['error' => 'Error.', 'message' => $e->getMessage()], 500);    
         }
     }
-    
+    public function mySalary(){
+        try {
+            $user = Auth::user();
+            if ($user->role != 'siteWorker' && $user->role != 'supervisor') {
+                return response()->json(['error' => 'Only site workers and supervisers can access this.'], 403);
+            }
+            $user_id=auth()->user()->id;
+            $salary = Salary::where('userId',$user_id)->orderBy('id', 'desc')->get();
+            $success = 'Salary';
+            return $this->sendJsonResponse($success, $salary);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());    
+        }
+    }
 }
