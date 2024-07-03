@@ -45,6 +45,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('addSalary', 'addSalary');
         Route::post('updateLeave', 'updateLeave');
         Route::get('allSalary', 'allSalary');
+        Route::post('updateProject', 'updateProject');
     });
 });
 Route::group(['middleware' => ['auth:sanctum']], function () {

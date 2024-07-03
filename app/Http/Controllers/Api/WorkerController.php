@@ -184,6 +184,7 @@ class WorkerController extends Controller
 
 
     // --------------Office worker----------------
+   
     public function saveProjects(Request $request) {
         try {
             $validatedData = Validator::make($request->all(), [
@@ -239,6 +240,66 @@ class WorkerController extends Controller
         }
     }
     private function serializeEmployees($employees) {
+        $employeeArray = explode(',', $employees); // Convert comma-separated string to array if necessary
+        $serialized = 'a:' . count($employeeArray) . ':{';
+        foreach ($employeeArray as $index => $employee) {
+            $serialized .= 'i:' . $index . ';s:' . strlen($employee) . ':"' . $employee . '";';
+        }
+        $serialized .= '}';
+        return $serialized;
+    }
+ 
+    public function updateProject(Request $request) {
+        $id = $request->id;
+        try {
+            $validatedData = Validator::make($request->all(), [
+                'Title' => 'sometimes|required',
+                'Location' => 'sometimes|required',
+                'Description' => 'sometimes|required',
+                'supervisor' => 'sometimes|required',
+                'employees' => 'sometimes|required',
+                'Images' => 'sometimes|required|array',
+                'lat' => 'sometimes|required',
+                'lng' => 'sometimes|required',
+            ]);
+    
+            if ($validatedData->fails()) {
+                return response()->json(['error' => $validatedData->errors()], 400);
+            }
+    
+            $user = Auth::user();
+            if ($user->role != 'officeWorker') {
+                return response()->json(['error' => 'Only office workers can access this.'], 403);
+            }
+    
+            $project = SiteManagement::findOrFail($id);
+    
+            $input = $request->all();
+    
+            // Process Images
+            $imageUrls = $project->Images ? json_decode($project->Images, true) : [];
+            if ($request->hasFile('Images')) {
+                foreach ($request->file('Images') as $image) {
+                    $liveURL = "uploads/";
+                    $image_name = time() . "_" . $image->getClientOriginalName();
+                    $destinationPath = public_path('uploads/');
+                    $image->move($destinationPath, $image_name);
+                    $imageUrls[] = $liveURL . $image_name;
+                }
+            }
+            error_log('Image URLs: ' . json_encode($imageUrls));
+            $input['Images'] = json_encode($imageUrls);
+            error_log('JSON Encoded Images: ' . $input['Images']);
+            if ($request->has('employees')) {
+                $input['employees'] = $this->serializeEmployeesUp($request->input('employees'));
+            }
+            $project->update($input);
+            return response()->json(['msg' => 'Project updated successfully.'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error.', 'message' => $e->getMessage()], 500);    
+        }
+    }
+    private function serializeEmployeesUp($employees) {
         $employeeArray = explode(',', $employees); // Convert comma-separated string to array if necessary
         $serialized = 'a:' . count($employeeArray) . ':{';
         foreach ($employeeArray as $index => $employee) {
