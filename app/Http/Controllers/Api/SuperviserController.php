@@ -20,29 +20,6 @@ use Illuminate\Support\Str;
 class SuperviserController extends Controller
 {
     use ApiResponseTrait;
-    public function allAttendance(){
-        try {
-            $user = Auth::user();
-            if ($user->role != 'officeWorker') {
-                return response()->json(['error' => 'You do not have access to view attendance'], 403);
-            }
-            $data = attendance::leftJoin('nickyClockinSystem_users', 'attendances.uid', '=', 'nickyClockinSystem_users.id')
-            ->select(
-                'nickyClockinSystem_users.name as uname',
-                'nickyClockinSystem_users.role as role',
-                'nickyClockinSystem_users.lastname',
-                'nickyClockinSystem_users.staff_id',
-                'attendances.*',
-            )
-            ->orderBy('attendances.id', 'desc')
-            ->get();
-
-            $success = 'Attendance';
-            return $this->sendJsonResponse($success, $data);
-        } catch (\Exception $e) {
-            return $this->sendError('Error.', $e->getMessage());    
-        }
-    }
     public function myWorkersAttendance(){
         try {
             $user = Auth::user();
