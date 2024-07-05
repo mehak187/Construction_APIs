@@ -291,6 +291,66 @@ class WorkerController extends Controller
     //  ---------------------------------
     //      Admin &  Office worker
     //  ---------------------------------
+    
+    public function registerWorker(Request $request) {
+        \DB::beginTransaction();
+        try{
+            $user = Auth::user();
+            if ($user->role != 'officeWorker' && $user->role != 'admin') {
+                return response()->json(['error' => 'Only office workers and admin can access this.'], 403);
+            }
+            $validator = Validator::make($request->all(), [
+                'name' => 'required',
+                'phone' => 'required',
+                'password' => 'required',
+            ]);
+    
+            if($validator->fails()){
+                return $this->sendAuthError('Validation Error.', $validator->errors());       
+            }
+    
+            $input = $request->all();
+            $input['password'] = bcrypt($input['password']);
+            $input['staff_id'] = Str::upper(Str::random(10));
+            $user = User::create($input);
+            
+            $data['token'] =  $user->createToken('MyApp')->plainTextToken;
+            \DB::commit();
+            return $this->sendResponse('User register successfully.',$data);
+            
+        } catch (\Exception $e) {
+            \DB::rollback();
+            return $this->sendAuthError('Error.', $e->getMessage());    
+        }
+
+    }
+    public function updateWorker(Request $request) {
+        \DB::beginTransaction();
+        try{
+            $user = Auth::user();
+            if ($user->role != 'officeWorker' && $user->role != 'admin') {
+                return response()->json(['error' => 'Only office workers and admin can access this.'], 403);
+            }
+            $validatedData = Validator::make($request->all(), [
+                'id' => 'required',
+            ]);
+
+            if ($validatedData->fails()) {
+                return response()->json(['error' => $validatedData->errors()], 400);
+            }
+            $id = $request->id;
+            $user = User::findOrFail($id);
+            $input = $request->all();
+            $input['password'] = bcrypt($input['password']);
+            $user->update($input);
+            $data['token'] =  $user->createToken('MyApp')->plainTextToken;
+            \DB::commit();
+            return $this->sendResponse('User updated successfully.',$data);
+        } catch (\Exception $e) {
+            \DB::rollback();
+            return $this->sendAuthError('Error.', $e->getMessage());    
+        }
+    }
     public function saveProjects(Request $request) {
         try {
             $validatedData = Validator::make($request->all(), [
@@ -517,7 +577,6 @@ class WorkerController extends Controller
         }
     }
     public function empProfile(){
-        // --------for office worker------
         try {
             $user = Auth::user();
             if ($user->role != 'officeWorker' && $user->role != 'admin') {

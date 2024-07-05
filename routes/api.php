@@ -25,8 +25,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::controller(AuthController::class)->group(function(){
-    Route::post('register/worker', 'registerWorker');
-    Route::post('register/merchant', 'registerMerchant');
     Route::post('login', 'login');
     Route::post('sendResetLinkEmail', 'sendResetLinkEmail');
 });
@@ -51,6 +49,8 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('updateProject', 'updateProject');
         Route::get('allAttendance', 'allAttendance');
         Route::get('empProfile', 'empProfile');
+        Route::post('register/worker', 'registerWorker');
+        Route::post('updateWorker', 'updateWorker');
     });
 });
 Route::group(['middleware' => ['auth:sanctum']], function () {
