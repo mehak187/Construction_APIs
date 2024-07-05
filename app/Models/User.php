@@ -69,6 +69,7 @@ class User extends Authenticatable
         'break_status',
         'site',
         'working_hours',
+        'status',
     ];
 
     public function products()
