@@ -23,11 +23,13 @@ use Illuminate\Support\Str;
 class WorkerController extends Controller
 {
     use ApiResponseTrait;
-    public function test()
-    { 
+    public function test(){ 
         $userId=auth()->user()->id;
         echo $userId;die();
     }
+    //  ---------------------------------
+    //      Site Worker &  Superviser
+    //  ---------------------------------
     public function checkin(Request $request){ 
         try {
             $validatedData = Validator::make($request->all(), [
@@ -46,9 +48,6 @@ class WorkerController extends Controller
             }
             $userId=auth()->user()->id;
             $checkinPhoto = $request->file('checkinPhoto');
-            // $checkinPhoto_name = time() . "_" .$checkinPhoto->getClientOriginalName();
-            // $destinationpath = public_path('uploads/');
-            // $checkinPhoto->move($destinationpath,$checkinPhoto_name);
                // ------for live---------
             $liveURL = "http://constructionapp.wantar-system.com/uploads/";
             $checkinPhoto_name = $liveURL . time() . "_" . $checkinPhoto->getClientOriginalName();
@@ -72,6 +71,10 @@ class WorkerController extends Controller
             }
     }
     public function checkout(Request $request){
+        $user = Auth::user();
+        if ($user->role != 'siteWorker' && $user->role != 'supervisor') {
+            return response()->json(['error' => 'Only site workers and supervisers can access this.'], 403);
+        }
         $validator = Validator::make($request->all(), [
             'id' => 'required',
             'checkout' => 'required',
@@ -93,7 +96,6 @@ class WorkerController extends Controller
         $destinationPath = public_path('uploads/');
         $checkoutPhoto->move($destinationPath, $checkoutPhoto_name);
     
-        // Update the leave record
         $leave->checkout = $request->checkout;
         $leave->overtime = $request->overtime;
         $leave->checkoutPhoto = $checkoutPhoto_name;
@@ -180,11 +182,115 @@ class WorkerController extends Controller
             return $this->sendError('Error.', $e->getMessage());
         }
     }
-    
+    public function todayAttendance(Request $request){
+        try {
+            $user = Auth::user();
+            if ($user->role != 'siteWorker' && $user->role != 'supervisor') {
+                return response()->json(['error' => 'Only site workers and supervisers can access this.'], 403);
+            }
+            $userId = auth()->user()->id;
+            $date = $request->input('date');
+            $attendanceRecords = Attendance::whereDate('checkin', $date)->where('uid', $userId)->first();
+            
+            return response()->json(['success' => true, 'data' => $attendanceRecords], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error.', 'message' => $e->getMessage()], 500);    
+        }
+    }
+    public function mySalary(){
+        try {
+            $user = Auth::user();
+            if ($user->role != 'siteWorker' && $user->role != 'supervisor') {
+                return response()->json(['error' => 'Only site workers and supervisers can access this.'], 403);
+            }
+            $user_id=auth()->user()->id;
+            $salary = Salary::where('userId',$user_id)->orderBy('id', 'desc')->get();
+            $success = 'Salary';
+            return $this->sendJsonResponse($success, $salary);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());    
+        }
+    }
+    //  ---------------------------------
+    //              Office worker
+    //  ---------------------------------
+    public function leave(Request $request){ 
+        try {
+            $user = Auth::user();
+            if ($user->role != 'officeWorker') {
+                return response()->json(['error' => 'Only office worker can apply for leave'], 403);
+            }
+            $validatedData = Validator::make($request->all(), [
+                'start_date' => 'required',
+                'end_date' => 'required',
+                'description' => 'required|string',
+                'timeAdded' => 'required',
+                'attachment' => 'required|file|mimes:jpeg,png,jpg,pdf|max:2048',
+                'leaveType' => 'required|string',
+            ]);
+            if ($validatedData->fails()) {
+                return response()->json(['error' => $validatedData->errors()], 400);
+            }
+            $user = Auth::user();
+            if ($user->role != 'officeWorker') {
+                return response()->json(['error' => 'Only office workers can apply for leave.'], 403);
+            }
+            $userId = auth()->user()->id;
+            $photo = $request->file('attachment');
+            
+            // Store the attachment
+            $photo_name = time() . "_" . $photo->getClientOriginalName();
+            $destinationPath = public_path('uploads/');
+            $photo->move($destinationPath, $photo_name);
 
+            // Prepare the input data
+            $input = $request->all();
+            $input['userId'] = $userId;
+            $input['status'] = "pending";
+            $input['attachment'] = $photo_name;
 
-    // --------------Office worker----------------
-   
+            // Create the leave request
+            $leave = Leave::create($input);
+
+            return response()->json(['msg' => 'Leave request sent successfully.'], 201);
+        } 
+        catch (\Exception $e) {
+            return response()->json(['error' => 'Error.', 'message' => $e->getMessage()], 500);
+        }
+    }
+    public function myLeaves(){
+        try {
+            $user = Auth::user();
+            if ($user->role != 'officeWorker') {
+                return response()->json(['error' => 'Only office worker can view their leaves'], 403);
+            }
+            $user_id=auth()->user()->id;
+            $leaves = Leave::where('userId',$user_id)->orderBy('id', 'desc')->get();
+            $success = 'Leaves';
+            return $this->sendJsonResponse($success, $leaves);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());    
+        }
+    }
+    public function updateLeave(Request $request){
+        $user = Auth::user();
+        if ($user->role != 'officeWorker') {
+            return response()->json(['error' => 'Only office worker can access this'], 403);
+        }
+        $validatedData = Validator::make($request->all(), [
+            'id' => 'required',
+        ]);
+        if ($validatedData->fails()) {
+            return response()->json(['error' => $validatedData->errors()], 400);
+        }
+        $data = $request->all();
+        $leave=Leave::find($request->id);
+        $leave->update($data);
+        return response()->json(['message' => 'Leave updated successfully']);
+    }
+    //  ---------------------------------
+    //      Admin &  Office worker
+    //  ---------------------------------
     public function saveProjects(Request $request) {
         try {
             $validatedData = Validator::make($request->all(), [
@@ -193,7 +299,7 @@ class WorkerController extends Controller
                 'Description' => 'required',
                 'supervisor' => 'required',
                 'employees' => 'required',
-                'Images' => 'required|array', // Add validation for each image
+                'Images' => 'required|array',
                 'lat' => 'required',
                 'lng' => 'required',
             ]);
@@ -201,15 +307,13 @@ class WorkerController extends Controller
             if ($validatedData->fails()) {
                 return response()->json(['error' => $validatedData->errors()], 400);
             }
-
             $user = Auth::user();
-            if ($user->role != 'officeWorker') {
-                return response()->json(['error' => 'Only office workers can access this.'], 403);
+            if ($user->role != 'officeWorker' && $user->role != 'admin') {
+                return response()->json(['error' => 'Only office workers and admin can access this.'], 403);
             }
 
             $input = $request->all();
             $input['role'] = 1;
-            // Process Images
             $imageUrls = [];
             if ($request->hasFile('Images')) {
                 foreach ($request->file('Images') as $image) {
@@ -220,19 +324,10 @@ class WorkerController extends Controller
                     $imageUrls[] = $liveURL . $image_name;
                 }
             }
-
-            // Debugging statement
             error_log('Image URLs: ' . json_encode($imageUrls));
-
-            // Format images as JSON
             $input['Images'] = json_encode($imageUrls);
-
-            // Debugging statement
             error_log('JSON Encoded Images: ' . $input['Images']);
-
-            // Serialize employees
             $input['employees'] = $this->serializeEmployees($request->input('employees'));
-
             SiteManagement::create($input);
             return response()->json(['msg' => 'Project Saved successfully.'], 201);
         } catch (\Exception $e) {
@@ -248,7 +343,6 @@ class WorkerController extends Controller
         $serialized .= '}';
         return $serialized;
     }
- 
     public function updateProject(Request $request) {
         $id = $request->id;
         try {
@@ -268,8 +362,8 @@ class WorkerController extends Controller
             }
     
             $user = Auth::user();
-            if ($user->role != 'officeWorker') {
-                return response()->json(['error' => 'Only office workers can access this.'], 403);
+            if ($user->role != 'officeWorker' && $user->role != 'admin') {
+                return response()->json(['error' => 'Only office workers and admin can access this.'], 403);
             }
     
             $project = SiteManagement::findOrFail($id);
@@ -300,7 +394,7 @@ class WorkerController extends Controller
         }
     }
     private function serializeEmployeesUp($employees) {
-        $employeeArray = explode(',', $employees); // Convert comma-separated string to array if necessary
+        $employeeArray = explode(',', $employees);
         $serialized = 'a:' . count($employeeArray) . ':{';
         foreach ($employeeArray as $index => $employee) {
             $serialized .= 'i:' . $index . ';s:' . strlen($employee) . ':"' . $employee . '";';
@@ -310,6 +404,10 @@ class WorkerController extends Controller
     }
     public function allProjects() {
         try {
+            $user = Auth::user();
+            if ($user->role != 'officeWorker' && $user->role != 'admin') {
+                return response()->json(['error' => 'Only office workers and admin can access this.'], 403);
+            }
             $user_id = auth()->user()->id;
             $projects = SiteManagement::leftJoin('nickyClockinSystem_users as supervisor', 'nickyClockinSystem_site_management.supervisor', '=', 'supervisor.id')
                 ->select(
@@ -360,70 +458,11 @@ class WorkerController extends Controller
             return $this->sendError('Error.', $e->getMessage());
         }
     }
-
-    public function leave(Request $request){ 
-        try {
-            $user = Auth::user();
-            if ($user->role != 'officeWorker') {
-                return response()->json(['error' => 'Only office worker can apply for leave'], 403);
-            }
-            $validatedData = Validator::make($request->all(), [
-                'start_date' => 'required',
-                'end_date' => 'required',
-                'description' => 'required|string',
-                'timeAdded' => 'required',
-                'attachment' => 'required|file|mimes:jpeg,png,jpg,pdf|max:2048',
-                'leaveType' => 'required|string',
-            ]);
-            if ($validatedData->fails()) {
-                return response()->json(['error' => $validatedData->errors()], 400);
-            }
-            $user = Auth::user();
-            if ($user->role != 'officeWorker') {
-                return response()->json(['error' => 'Only office workers can apply for leave.'], 403);
-            }
-            $userId = auth()->user()->id;
-            $photo = $request->file('attachment');
-            
-            // Store the attachment
-            $photo_name = time() . "_" . $photo->getClientOriginalName();
-            $destinationPath = public_path('uploads/');
-            $photo->move($destinationPath, $photo_name);
-    
-            // Prepare the input data
-            $input = $request->all();
-            $input['userId'] = $userId;
-            $input['status'] = "pending";
-            $input['attachment'] = $photo_name;
-    
-            // Create the leave request
-            $leave = Leave::create($input);
-    
-            return response()->json(['msg' => 'Leave request sent successfully.'], 201);
-        } 
-        catch (\Exception $e) {
-            return response()->json(['error' => 'Error.', 'message' => $e->getMessage()], 500);
-        }
-    }
-    public function myLeaves(){
-        try {
-            $user = Auth::user();
-            if ($user->role != 'officeWorker') {
-                return response()->json(['error' => 'Only office worker can view their leaves'], 403);
-            }
-            $user_id=auth()->user()->id;
-            $leaves = Leave::where('userId',$user_id)->orderBy('id', 'desc')->get();
-            $success = 'Leaves';
-            return $this->sendJsonResponse($success, $leaves);
-        } catch (\Exception $e) {
-            return $this->sendError('Error.', $e->getMessage());    
-        }
-    }
     public function addsalary(Request $request){ 
         try {
             $user = Auth::user();
-            if ($user->role != 'officeWorker') {
-                return response()->json(['error' => 'Only office worker can access this'], 403);
+            if ($user->role != 'officeWorker' && $user->role != 'admin') {
+                return response()->json(['error' => 'Only office workers and admin can access this.'], 403);
             }
             $validatedData = Validator::make($request->all(), [
                 'start_date' => 'required',
@@ -442,31 +481,53 @@ class WorkerController extends Controller
                 return $this->sendError('Error.', $e->getMessage());    
             }
     }
-    public function updateLeave(Request $request){
-        $user = Auth::user();
-        if ($user->role != 'officeWorker') {
-            return response()->json(['error' => 'Only office worker can access this'], 403);
-        }
-        $validatedData = Validator::make($request->all(), [
-            'id' => 'required',
-        ]);
-        if ($validatedData->fails()) {
-            return response()->json(['error' => $validatedData->errors()], 400);
-        }
-        $data = $request->all();
-        $leave=Leave::find($request->id);
-        $leave->update($data);
-        return response()->json(['message' => 'Leave updated successfully']);
-    }
     public function allSalary(){
         try {
             $user = Auth::user();
-            if ($user->role != 'officeWorker') {
-                return response()->json(['error' => 'Only office workers can access this.'], 403);
+            if ($user->role != 'officeWorker' && $user->role != 'admin') {
+                return response()->json(['error' => 'Only office workers and admin can access this.'], 403);
             }
             $salary = Salary::all();
             $success = 'Salary';
             return $this->sendJsonResponse($success, $salary);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());    
+        }
+    }
+    public function allAttendance(){
+        try {
+            $user = Auth::user();
+            if ($user->role != 'officeWorker' && $user->role != 'admin') {
+                return response()->json(['error' => 'Only office workers and admin can access this.'], 403);
+            }
+            $data = attendance::leftJoin('nickyClockinSystem_users', 'attendances.uid', '=', 'nickyClockinSystem_users.id')
+            ->select(
+                'nickyClockinSystem_users.name as uname',
+                'nickyClockinSystem_users.role as role',
+                'nickyClockinSystem_users.lastname',
+                'nickyClockinSystem_users.staff_id',
+                'attendances.*',
+            )
+            ->orderBy('attendances.id', 'desc')
+            ->get();
+
+            $success = 'Attendance';
+            return $this->sendJsonResponse($success, $data);
+        } catch (\Exception $e) {
+            return $this->sendError('Error.', $e->getMessage());    
+        }
+    }
+    public function empProfile(){
+        // --------for office worker------
+        try {
+            $user = Auth::user();
+            if ($user->role != 'officeWorker' && $user->role != 'admin') {
+                return response()->json(['error' => 'Only office workers and admin can access this.'], 403);
+            }
+            $profile = User::where('role','supervisor') ->orWhere('role', 'siteWorker')
+            ->orderBy('id', 'desc')->get();
+            $success = 'Profile';
+            return $this->sendJsonResponse($success, $profile);
         } catch (\Exception $e) {
             return $this->sendError('Error.', $e->getMessage());    
         }

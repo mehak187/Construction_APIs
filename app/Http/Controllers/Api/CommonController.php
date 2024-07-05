@@ -33,44 +33,4 @@ class CommonController extends Controller
             return $this->sendError('Error.', $e->getMessage());    
         }
     }
-    public function empProfile(){
-        // --------for office worker------
-        try {
-            $user = Auth::user();
-            if ($user->role != 'officeWorker') {
-                return response()->json(['error' => 'Only office workers can access this.'], 403);
-            }
-            $profile = User::where('role','supervisor') ->orWhere('role', 'siteWorker')
-            ->orderBy('id', 'desc')->get();
-            $success = 'Profile';
-            return $this->sendJsonResponse($success, $profile);
-        } catch (\Exception $e) {
-            return $this->sendError('Error.', $e->getMessage());    
-        }
-    }
-    public function todayAttendance(Request $request){
-        try {
-            $userId = auth()->user()->id;
-            $date = $request->input('date');
-            $attendanceRecords = Attendance::whereDate('checkin', $date)->where('uid', $userId)->first();
-            
-            return response()->json(['success' => true, 'data' => $attendanceRecords], 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Error.', 'message' => $e->getMessage()], 500);    
-        }
-    }
-    public function mySalary(){
-        try {
-            $user = Auth::user();
-            if ($user->role != 'siteWorker' && $user->role != 'supervisor') {
-                return response()->json(['error' => 'Only site workers and supervisers can access this.'], 403);
-            }
-            $user_id=auth()->user()->id;
-            $salary = Salary::where('userId',$user_id)->orderBy('id', 'desc')->get();
-            $success = 'Salary';
-            return $this->sendJsonResponse($success, $salary);
-        } catch (\Exception $e) {
-            return $this->sendError('Error.', $e->getMessage());    
-        }
-    }
 }

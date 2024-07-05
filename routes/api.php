@@ -37,23 +37,25 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('checkout', 'checkout');
         Route::get('myAttendance', 'myAttendance');
         Route::get('myprojects', 'myprojects');
-        
+        Route::post('todayAttendance', 'todayAttendance');
+        Route::get('mySalary', 'mySalary');
+        // -------office-worker-----
         Route::post('leave', 'leave');
         Route::get('myLeaves', 'myLeaves');
+        Route::post('updateLeave', 'updateLeave');
+        // -------office-worker and admin-----
         Route::get('allProjects', 'allProjects');
         Route::post('saveProjects', 'saveProjects');
         Route::post('addSalary', 'addSalary');
-        Route::post('updateLeave', 'updateLeave');
         Route::get('allSalary', 'allSalary');
         Route::post('updateProject', 'updateProject');
+        Route::get('allAttendance', 'allAttendance');
+        Route::get('empProfile', 'empProfile');
     });
 });
 Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::controller(CommonController::class)->group(function(){
         Route::get('myprofile', 'myprofile');
-        Route::get('empProfile', 'empProfile');
-        Route::post('todayAttendance', 'todayAttendance');
-        Route::get('mySalary', 'mySalary');
     });
 });
 Route::group(['middleware' => ['auth:sanctum']], function () {
@@ -65,7 +67,6 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 
 Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::controller(SuperviserController::class)->group(function(){
-        Route::get('allAttendance', 'allAttendance');
         Route::get('myWorkersAttendance', 'myWorkersAttendance');
     });
 });
