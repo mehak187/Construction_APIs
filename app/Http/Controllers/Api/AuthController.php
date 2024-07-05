@@ -23,7 +23,7 @@ class AuthController extends Controller
     public function login(Request $request) {
         try {
             $validator = Validator::make($request->all(), [
-                'email' => 'required', // can be email, phone, or staff_id
+                'email' => 'required',
                 'password' => 'required',
             ]);
     
@@ -33,20 +33,21 @@ class AuthController extends Controller
     
             $credentials = $request->only('password');
             $identifier = $request->input('email');
-    
-            // Determine which field to use for authentication
             $user = \App\Models\User::where('email', $identifier)
                 ->orWhere('phone', $identifier)
                 ->orWhere('staff_id', $identifier)
                 ->first();
     
-            if ($user && Auth::attempt(['email' => $user->email, 'password' => $request->password])) {
+            if ($user && $user->status == 'active' && Auth::attempt(['email' => $user->email, 'password' => $request->password])) {
                 $user = Auth::user();
                 $data['token'] = $user->createToken('MyApp')->plainTextToken;
                 $data['id'] = $user->id;
                 $data['role'] = $user->role;
                 return $this->sendJsonResponse('User login successfully.', $data);
             } else {
+                if ($user && $user->status != 'active') {
+                    return $this->sendAuthError('Account inactive.', ['error' => 'Your account is inactive.']);
+                }
                 return $this->sendAuthError('Invalid credentials.', ['error' => 'The provided email, phone, or staff ID, or password is incorrect.']);
             }
         } catch (\Exception $e) {
