@@ -40,6 +40,10 @@ class HRController extends Controller
     }
     public function updateLeaveStatus(Request $request)
     {
+        $user = Auth::user();
+        if ($user->role != 'admin') {
+            return response()->json(['error' => 'Only admin can access this.'], 403);
+        }
         $leave=Leave::find($request->id);
         $validator = Validator::make($request->all(), [
             'status' => 'required',
