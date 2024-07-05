@@ -296,10 +296,9 @@ class WorkerController extends Controller
             $validatedData = Validator::make($request->all(), [
                 'Title' => 'required',
                 'Location' => 'required',
-                'Description' => 'required',
                 'supervisor' => 'required',
                 'employees' => 'required',
-                'Images' => 'required|array',
+                'Images' => 'sometimes|required|array',
                 'lat' => 'required',
                 'lng' => 'required',
             ]);
