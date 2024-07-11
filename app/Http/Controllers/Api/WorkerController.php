@@ -358,7 +358,9 @@ class WorkerController extends Controller
             $user = User::findOrFail($id);
             $input = $request->all();
             $input['staff_id'] = $staff_id;
-            $input['password'] = bcrypt($input['password']);
+            if($request->password){
+                $input['password'] = bcrypt($input['password']);
+            }
             $user->update($input);
             $data['token'] =  $user->createToken('MyApp')->plainTextToken;
             \DB::commit();
