@@ -43,6 +43,7 @@ class AuthController extends Controller
                 $data['token'] = $user->createToken('MyApp')->plainTextToken;
                 $data['id'] = $user->id;
                 $data['role'] = $user->role;
+                $data['status'] = $user->status;
                 return $this->sendJsonResponse('User login successfully.', $data);
             } else {
                 if ($user && $user->status != 'active') {
