@@ -238,10 +238,10 @@ class WorkerController extends Controller
             $userId = auth()->user()->id;
             $photo = $request->file('attachment');
             
-            // Store the attachment
-            $photo_name = time() . "_" . $photo->getClientOriginalName();
-            $destinationPath = public_path('uploads/');
-            $photo->move($destinationPath, $photo_name);
+            $liveURL = "http://constructionapp.wantar-system.com/uploads/";
+            $photo_name  = $liveURL . time() . "_" . $photo->getClientOriginalName();
+            $destinationpath = public_path('uploads/');
+            $photo->move($destinationpath,$photo_name );
 
             // Prepare the input data
             $input = $request->all();
@@ -283,7 +283,15 @@ class WorkerController extends Controller
         if ($validatedData->fails()) {
             return response()->json(['error' => $validatedData->errors()], 400);
         }
+
+        $photo = $request->file('attachment');
+        $liveURL = "http://constructionapp.wantar-system.com/uploads/";
+        $photo_name  = $liveURL . time() . "_" . $photo->getClientOriginalName();
+        $destinationpath = public_path('uploads/');
+        $photo->move($destinationpath,$photo_name );
+
         $data = $request->all();
+        $data['attachment'] = $photo_name;
         $leave=Leave::find($request->id);
         $leave->update($data);
         return response()->json(['message' => 'Leave updated successfully']);
@@ -308,10 +316,14 @@ class WorkerController extends Controller
             if($validator->fails()){
                 return $this->sendAuthError('Validation Error.', $validator->errors());       
             }
+            do {
+                $staff_id = Str::upper(Str::random(10));
+            } while (User::where('staff_id', $staff_id)->exists());
     
+            
             $input = $request->all();
             $input['password'] = bcrypt($input['password']);
-            $input['staff_id'] = Str::upper(Str::random(10));
+            $input['staff_id'] = $staff_id;
             $user = User::create($input);
             
             $data['token'] =  $user->createToken('MyApp')->plainTextToken;
@@ -338,9 +350,14 @@ class WorkerController extends Controller
             if ($validatedData->fails()) {
                 return response()->json(['error' => $validatedData->errors()], 400);
             }
+            do {
+                $staff_id = Str::upper(Str::random(10));
+            } while (User::where('staff_id', $staff_id)->exists());
+    
             $id = $request->id;
             $user = User::findOrFail($id);
             $input = $request->all();
+            $input['staff_id'] = $staff_id;
             $input['password'] = bcrypt($input['password']);
             $user->update($input);
             $data['token'] =  $user->createToken('MyApp')->plainTextToken;
